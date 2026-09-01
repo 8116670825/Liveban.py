@@ -5,13 +5,12 @@ from threading import Thread
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ChatMemberHandler, ContextTypes
 from telegram.constants import ChatMemberStatus
-from telegram.error import TelegramError, NetworkError, TimedOut
 
 flask_app = Flask('')
 
 @flask_app.route('/')
 def home():
-    return "Ultra-Stable Zero-Error Anti-Premium Bot is active!"
+    return "Ultra-Pro Live Stream Anti-Premium Bot is running successfully!"
 
 @flask_app.route('/healthz')
 def health_check():
@@ -37,7 +36,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Updated Token
 BOT_TOKEN = "8716958222:AAGwJB4bjQhcexbEo_rEdKAeZ-CwBwQzMok"
 OWNER_USER_ID = 8064395854  
 
@@ -56,62 +54,48 @@ async def handle_live_stream_entry(update: Update, context: ContextTypes.DEFAULT
         user = new_member.user
 
         if user.id == OWNER_USER_ID:
-            logger.info(f"[SAFE OWNER] Owner bypass successful: {user.id}")
+            logger.info(f"[ULTRA-PRO SAFE] Owner bypass active for ID: {user.id} ({user.full_name})")
             return
 
         if new_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.RESTRICTED]:
             try:
                 member_info = await context.bot.get_chat_member(chat_id, user.id)
                 if member_info and member_info.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]:
-                    logger.info(f"[SAFE ADMIN] Admin bypass successful: {user.id}")
+                    logger.info(f"[ULTRA-PRO SAFE] Admin bypass active for ID: {user.id} ({user.full_name})")
                     return
-            except (NetworkError, TimedOut) as net_err:
-                logger.warning(f"Network glitch during admin check for {user.id}: {net_err}")
             except Exception as admin_err:
-                logger.warning(f"Minor safe-check exception for {user.id}: {admin_err}")
+                logger.warning(f"Admin check bypass warning: {admin_err}")
 
             if getattr(user, "is_premium", False):
                 try:
                     await context.bot.ban_chat_member(chat_id=chat_id, user_id=user.id)
-                    logger.warning(f"[ULTRA FAST BAN] Premium user successfully banned: {user.id}")
-                except (NetworkError, TimedOut) as net_err:
-                    logger.error(f"Network timeout while banning premium user {user.id}: {net_err}")
-                except TelegramError as tg_err:
-                    logger.error(f"Telegram API restriction error for user {user.id}: {tg_err}")
+                    logger.warning(f"[ULTRA-FAST BAN EXECUTED] Premium user removed instantly: {user.full_name} (ID: {user.id})")
                 except Exception as ban_err:
-                    logger.error(f"Unexpected ban execution error for {user.id}: {ban_err}")
+                    logger.error(f"Failed to ban premium user {user.id}: {ban_err}")
             else:
-                logger.info(f"[SAFE USER] Normal non-premium user allowed: {user.id}")
+                logger.info(f"[ALLOWED] Non-premium user permitted: {user.full_name} (ID: {user.id})")
 
-    except (NetworkError, TimedOut) as net_err:
-        logger.error(f"Transient network error caught safely in main handler: {net_err}")
     except Exception as e:
-        logger.error(f"Non-fatal guarded exception in handler: {e}", exc_info=False)
+        logger.error(f"Error inside ultra-pro live handler: {e}", exc_info=True)
 
 def main():
     keep_alive()
-    logger.info("Keep-alive background thread running smoothly.")
+    logger.info("Keep-alive active. Initializing Ultra-Pro Telegram Bot...")
 
     try:
         telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
         telegram_app.add_handler(ChatMemberHandler(handle_live_stream_entry, ChatMemberHandler.CHAT_MEMBER))
 
-        logger.info("Zero-Error Bot polling started securely...")
+        logger.info("Ultra-Pro Anti-Premium Bot polling started with zero-error framework...")
         
         telegram_app.run_polling(
             allowed_updates=[Update.CHAT_MEMBER, Update.MY_CHAT_MEMBER],
-            drop_pending_updates=True,
-            read_timeout=30,
-            write_timeout=30,
-            connect_timeout=30,
-            pool_timeout=30
+            drop_pending_updates=True
         )
-    except (NetworkError, TimedOut) as net_err:
-        logger.critical(f"Critical network failure in polling loop: {net_err}")
     except Exception as e:
-        logger.critical(f"Fatal application exception: {e}", exc_info=True)
+        logger.critical(f"Fatal application crash: {e}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-  
+    
