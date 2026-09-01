@@ -1,12 +1,12 @@
-import sys
+import os
 import time
 from flask import Flask
-from threading import Thread
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ChatMemberHandler, ContextTypes
 from telegram.constants import ChatMemberStatus
 from telegram.error import NetworkError, TimedOut, Conflict
 
+# Gunicorn और Render के लिए सही सेटअप
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -16,19 +16,6 @@ def home():
 @flask_app.route('/healthz')
 def health_check():
     return "OK", 200
-
-def run_flask():
-    try:
-        flask_app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
-    except Exception:
-        pass
-
-def keep_alive():
-    try:
-        t = Thread(target=run_flask, daemon=True)
-        t.start()
-    except Exception:
-        pass
 
 BOT_TOKEN = "8716958222:AAGwJB4bjQhcexbEo_rEdKAeZ-CwBwQzMok"
 OWNER_USER_ID = 8064395854  
@@ -68,9 +55,6 @@ async def handle_live_stream_entry(update: Update, context: ContextTypes.DEFAULT
         pass
 
 def main():
-    keep_alive()
-    
-    # रेंडर पर रीस्टार्ट के वक्त पुराने सर्वर को हटाने के लिए सुरक्षित इंतज़ार
     time.sleep(6)
     
     while True:
@@ -91,5 +75,6 @@ def main():
             time.sleep(5)
 
 if __name__ == "__main__":
+    # जब सीधे रन हो (लोकल या gunicorn के थ्रू)
     main()
     
