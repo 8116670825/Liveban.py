@@ -9,14 +9,14 @@ from telegram.ext import ApplicationBuilder, ChatMemberHandler, ContextTypes
 from telegram.constants import ChatMemberStatus
 from telegram.error import NetworkError, TimedOut, Conflict
 
-# 1. प्रोफेशनल लॉगिंग सेटअप (ताकि रेंडर कंसोल में हर एक एक्टिविटी साफ़ दिखे)
+# लॉगिंग सेटअप
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# 2. फ्लास्क हेल्थ-चेक सर्वर (रेंडर के लिए अनिवार्य)
+# फ्लास्क हेल्थ-चेक सर्वर (रेंडर के लिए)
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -28,7 +28,6 @@ def health_check() -> str:
     return "OK", 200
 
 def run_flask() -> None:
-    """रेंडर के दिए गए डायनामिक पोर्ट पर फ्लास्क सर्वर को बैकग्राउंड में चलाना"""
     try:
         port = int(os.environ.get("PORT", 10000))
         flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
@@ -36,26 +35,23 @@ def run_flask() -> None:
         logger.error(f"Flask server error: {e}")
 
 def keep_alive() -> None:
-    """फ्लास्क थ्रेड इनिशियलाइज़र"""
     try:
         thread = Thread(target=run_flask, daemon=True)
         thread.start()
-        logger.info("Keep-alive background server started successfully.")
     except Exception as e:
-        logger.error(f"Failed to start keep-alive thread: {e}")
+        logger.error(f"Keep-alive thread error: {e}")
 
-# 3. कॉन्फिगरेशन कॉन्सटेंट (क्रेडेंशियल्स)
+# क्रेडेंशियल्स
 BOT_TOKEN = "8716958222:AAGwJB4bjQhcexbEo_rEdKAeZ-CwBwQzMok"
 OWNER_USER_ID = 8064395854  
 
-# डुप्लीकेट प्रोसेसिंग रोकने और सुपर-फास्ट स्पीड के लिए इन-मेमोरी सेट कैश
+# सुपर-फास्ट स्पीड और डुप्लीकेट रोकने के लिए कैश
 checked_users_cache = set()
 
-async def ultra_fast_checker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def live_stream_instant_ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    अल्ट्रा-फास्ट, नैनो-सेकंड लाइव चेकिंग लॉजिक:
-    - ओनर और एडमिन को पूर्ण सुरक्षा प्रदान करता है।
-    - प्रीमियम यूजर मिलते ही उसे बिना किसी देरी के तुरंत बैन करता है।
+    यह हैंडलर जॉइन रिक्वेस्ट को बिल्कुल हाथ नहीं लगाएगा (यानी रिक्वेस्ट आपके कंट्रोल में रहेगी)।
+    लेकिन जैसे ही कोई यूजर चैनल या लाइव गतिविधि में आएगा, बॉट प्रीमियम चेक करके 0.1 सेकंड में बैन कर देगा।
     """
     try:
         if not update or not update.chat_member:
@@ -71,57 +67,55 @@ async def ultra_fast_checker(update: Update, context: ContextTypes.DEFAULT_TYPE)
         user = new_member.user
         user_id = user.id
 
-        # सुरक्षा और स्पीड ऑप्टिमाइज़ेशन: ओनर या पहले से चेक किए गए यूजर को बाईपास करें
+        # ओनर और पहले से चेक किए गए यूजर्स को बाईपास करें
         if user_id == OWNER_USER_ID or user_id in checked_users_cache:
             return
 
-        # कैश में जोड़ें ताकि अगली बार लोड न पड़े
         checked_users_cache.add(user_id)
 
-        # एडमिन या ओनर स्टेटस चेक
+        # एडमिन या ओनर को पूर्ण सुरक्षा
         status = new_member.status
         if status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
             return
 
-        # डायरेक्ट प्रीमियम चेक (बिना अतिरिक्त API डिले के)
+        # डायरेक्ट प्रीमियम चेक और इंस्टेंट बैन (0.1 सेकंड के अंदर)
         if getattr(user, "is_premium", False):
             try:
                 await context.bot.ban_chat_member(chat_id=chat.id, user_id=user_id)
-                logger.info(f"Successfully banned premium user ID: {user_id} from chat ID: {chat.id}")
+                logger.info(f"Instant-banned premium user ID: {user_id} from chat ID: {chat.id}")
             except Exception as ban_error:
                 logger.error(f"Could not ban user {user_id}: {ban_error}")
 
     except Exception as e:
-        logger.error(f"Error inside ultra_fast_checker: {e}")
+        logger.error(f"Error inside live_stream_instant_ban: {e}")
 
 def main() -> None:
-    """मुख्य बोट रनर लूप - ऑटो-रिकवरी और फॉल्ट टॉलरेन्स के साथ"""
     keep_alive()
     time.sleep(1)
 
-    logger.info("Initializing Telegram Bot Application...")
+    logger.info("Starting Telegram Bot Application...")
     
     while True:
         try:
             telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
             
-            # सिर्फ आवश्यक चैट मेंबर अपडेट्स को रजिस्टर करना
-            telegram_app.add_handler(ChatMemberHandler(ultra_fast_checker, ChatMemberHandler.CHAT_MEMBER))
+            # ध्यान दें: हमने यहाँ ChatJoinRequestHandler को पूरी तरह हटा दिया है, 
+            # ताकि बॉट आपकी मर्जी के खिलाफ कोई रिक्वेस्ट ऑटो-अप्रूव या टच न करे।
+            telegram_app.add_handler(ChatMemberHandler(live_stream_instant_ban, ChatMemberHandler.CHAT_MEMBER))
             
-            logger.info("Bot is starting polling now...")
             telegram_app.run_polling(
                 allowed_updates=[Update.CHAT_MEMBER, Update.MY_CHAT_MEMBER],
                 drop_pending_updates=True,
                 close_loop=False
             )
         except Conflict:
-            logger.warning("Conflict error detected (another instance might be running). Retrying in 10 seconds...")
+            logger.warning("Conflict error detected. Retrying in 10 seconds...")
             time.sleep(10)
         except (NetworkError, TimedOut):
-            logger.warning("Network connection lost or timed out. Reconnecting in 3 seconds...")
+            logger.warning("Network connection lost. Reconnecting...")
             time.sleep(3)
         except Exception as e:
-            logger.critical(f"Critical unexpected error in main loop: {e}. Restarting in 5 seconds...")
+            logger.critical(f"Critical error: {e}. Restarting...")
             time.sleep(5)
 
 if __name__ == "__main__":
